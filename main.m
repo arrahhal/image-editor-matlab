@@ -270,11 +270,16 @@ end
 
 % --- Executes on button press in pushbutton11.
 function pushbutton11_Callback(hObject, eventdata, handles)
-    global imgs idx
-    wcompress('c', imgs{idx}, 'temp.wtc', 'wdr');
-    figure, imshow('temp.wtc');
-    delete('temp.wtc');
+    global imgs idx img
+    img = imgs{idx};
+    img = imresize(img, 0.5);
+    commitImg();
 end
+
+function pushbutton10_Callback(hObject, eventdata, handles)
+    imsave();
+end
+
 
 function popupmenu4_Callback(hObject, eventdata, handles)
     global imgs idx img
