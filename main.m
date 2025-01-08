@@ -42,7 +42,6 @@ end
 function varargout = main_OutputFcn(hObject, eventdata, handles) 
 varargout{1} = handles.output;
 end
-
 function updateIdx()
     global idx imgs mx
     idx = min(idx, 10);
@@ -62,6 +61,70 @@ function commitImg()
     imgs(1:9) = imgs(2:10);
     imgs{10} = img;
     imshow(img);
+end
+
+function b = initImg()
+    global imgs idx img
+    img = imgs{idx};
+    if isempty(img)
+        msgbox('No image loaded!', 'Error', 'error');
+        b = false;
+    else
+        b = true;
+    end
+end
+
+
+function yuvimg = rgb2yuv(img)
+    R = double(img(:,:,1)) / 255;
+    G = double(img(:,:,2)) / 255;
+    B = double(img(:,:,3)) / 255;
+    
+    Y = 0.299 * R + 0.587 * G + 0.114 * B;
+    U = -0.14713 * R - 0.28886 * G + 0.436 * B;
+    V = 0.615 * R - 0.51499 * G - 0.10001 * B;
+    YUV = cat(3,Y,U,V);
+    yuvimg = YUV;
+end
+
+function cmykimg = rgb2cmyk(img)
+    R = double(img(:,:,1)) / 255;
+    G = double(img(:,:,2)) / 255;
+    B = double(img(:,:,3)) / 255;
+    
+    C_prime = 1 - R;
+    M_prime = 1 - G;
+    Y_prime = 1 - B;
+    
+    K = min(min(C_prime, M_prime), Y_prime);
+    
+    denom = 1 - K;
+    denom(denom == 0) = 1;
+    
+    C = (C_prime - K) ./ denom;
+    M = (M_prime - K) ./ denom;
+    Y = (Y_prime - K) ./ denom;
+    
+    cmykimg = cat(3, C, M, Y, K);
+end
+
+function rgbimg = cmyk2rgb(cmykimg)
+    % Extract CMYK channels
+    C = cmykimg(:,:,1);
+    M = cmykimg(:,:,2);
+    Y = cmykimg(:,:,3);
+    K = cmykimg(:,:,4);
+
+    % Convert CMYK to RGB
+    R = (1 - C) .* (1 - K);
+    G = (1 - M) .* (1 - K);
+    B = (1 - Y) .* (1 - K);
+
+    % Combine the channels into an RGB image
+    rgbimg = cat(3, R, G, B);
+
+    % Scale back to [0, 255] range if needed
+    rgbimg = uint8(rgbimg * 255);
 end
 
 % --- Executes on button press in pushbutton1.
@@ -92,15 +155,29 @@ function pushbutton3_Callback(hObject, eventdata, handles)
 end
 
 
-% --- Executes on button press in pushbutton4.
 function pushbutton4_Callback(hObject, eventdata, handles)
     global img
+    if (~initImg())
+        return;
+    end
     img = imrotate(img, -90);
+    commitImg();
+end
+
+function pushbutton12_Callback(hObject, eventdata, handles)
+    global img
+    if (~initImg())
+        return;
+    end
+    img = imrotate(img, 90);
     commitImg();
 end
 
 function pushbutton6_Callback(hObject, eventdata, handles)
     global width height img
+    if (~initImg())
+        return;
+    end
     img = imresize(img, [width, height]);
     commitImg();
 end
@@ -117,30 +194,31 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 end
 
-
-
 function edit3_Callback(hObject, eventdata, handles)
     global width
     w = str2double(get(hObject, 'String'));
     width = w;
 end
-
 function edit3_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 end
 
-% --- Executes on button press in pushbutton7.
 function pushbutton7_Callback(hObject, eventdata, handles)
     global img
-    img = flip(img, 2); % Mirror horizontally
+    if (~initImg())
+        return;
+    end
+    img = flip(img, 2);
     commitImg();
 end
 
-% --- Executes on button press in pushbutton8.
 function popupmenu2_Callback(hObject, eventdata, handles)
     global img
+    if (~initImg())
+        return;
+    end
     contents = cellstr(get(hObject, 'String'));
     selected = contents{get(hObject, 'Value')};
     
@@ -162,7 +240,6 @@ function popupmenu2_Callback(hObject, eventdata, handles)
 
 end
 
-% --- Executes during object creation, after setting all properties.
 function popupmenu2_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
@@ -170,35 +247,35 @@ end
 end
 
 
-% --- Executes on button press in pushbutton9.
 function pushbutton9_Callback(hObject, eventdata, handles)
     global img
+    if (~initImg())
+        return;
+    end
     if isempty(img)
         msgbox('No image loaded!', 'Error', 'error');
         return;
     end
-    figure, imshow(img); % Open the image in a new figure
-    title('Select a region to crop and double-click to confirm.');
-    croppedImg = imcrop; % Let the user select a region
-
-    % Check if the user completed the crop
+    figure, imshow(img);
+    title('???  ??????? ???? ???? ???? ?? ??????');
+    croppedImg = imcrop;
     if isempty(croppedImg)
         msgbox('Cropping cancelled.', 'Info');
         return;
     end
-    
-    img = croppedImg; % Update the global image variable
-    close; % Close the cropping figure
-    commitImg(); % Commit and display the cropped image
+ 
+    img = croppedImg;
+    close;
+    commitImg();
 end
 
-
-% --- Executes on slider movement.
 function slider2_Callback(hObject, eventdata, handles)
-    global img imgs idx
-    % Get the slider value
+    global img
+    if (~initImg())
+        return;
+    end
     brightnessFactor = get(hObject, 'Value');
-    img = imadjust(imgs{idx}, [], [], brightnessFactor);
+    img = imadjust(img, [], [], brightnessFactor);
     commitImg();
 end
 
@@ -208,21 +285,22 @@ if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColo
 end
 end
 
-
-% --- Executes on selection change in popupmenu3.
 function popupmenu3_Callback(hObject, eventdata, handles)
     global img
+    if (~initImg())
+        return;
+    end
     colorSystems = get(hObject, 'String');
     selectedColorSystem = colorSystems{get(hObject, 'Value')};
     switch selectedColorSystem
         case 'RGB'
-            img = img; % Original RGB image
         case 'Ycbcr'
             img = rgb2ycbcr(img);
         case 'YUV'
             img = rgb2yuv(img);
         case 'CMYK'
-            img = rgb2cmyk(img)
+            cmykimg = rgb2cmyk(img);
+            img = cmyk2rgb(cmykimg);
         case 'HSV'
             img = rgb2hsv(img);
         otherwise
@@ -231,44 +309,13 @@ function popupmenu3_Callback(hObject, eventdata, handles)
     end
     commitImg();
 end
-% --- Executes during object creation, after setting all properties.
-function popupmenu3_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to popupmenu3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
 
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
+function popupmenu3_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
 end
 
-function slider3_Callback(hObject, eventdata, handles)
-    global img imgs idx
-    if isempty(img)
-        msgbox('No image loaded!', 'Error', 'error');
-        return;
-    end
-
-    % Get the slider value
-    sf = get(hObject, 'Value'); % Scaling factor
-
-    % Resize the image using the scaling factor
-    resizedImg = imresize(imgs{idx}, sf);
-
-    img = resizedImg;
-    commitImg();
-end
-
-function slider3_CreateFcn(hObject, eventdata, handles)
-    set(hObject, 'Min', 0.1, 'Max', 2, 'Value', 1); % 10% to 200% scaling
-    if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-        set(hObject,'BackgroundColor',[.9 .9 .9]);
-    end
-end
-
-% --- Executes on button press in pushbutton11.
 function pushbutton11_Callback(hObject, eventdata, handles)
     global imgs idx img
     img = imgs{idx};
@@ -280,23 +327,24 @@ function pushbutton10_Callback(hObject, eventdata, handles)
     imsave();
 end
 
-
 function popupmenu4_Callback(hObject, eventdata, handles)
-    global imgs idx img
-    img = imgs{idx};
+    global img
+    if(~initImg())
+        return;
+    end
     contents = cellstr(get(hObject, 'String'));
     value = contents{get(hObject, 'Value')};
     switch(value)
-        case 'gray'
-            img(:, :, 2) = img(:, :, 1);
-            img(:, :, 3) = img(:, :, 1);
+        case 'winter'
+            m = colormap(winter);
+            a = rgb2ind(img, m);
+            img = ind2rgb(a,m);
         case 'hot'
             img(:,:,2:3) = 0;
-        case 'cold'
-            img(:, :,1:2) = 0;
-        case 'greenish'
-            img(:, :, 1) = 0;
-            img(:, :, 3) = 0;
+        case 'summer'
+            m = colormap(summer);
+            a = rgb2ind(img, m);
+            img = ind2rgb(a,m);
         case 'autumn'
             m = colormap(autumn);
             a = rgb2ind(img, m);
@@ -307,5 +355,53 @@ end
 function popupmenu4_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
+end
+end
+
+
+% --- Executes on slider movement.
+function slider7_Callback(hObject, eventdata, handles)
+    global img
+    if (~initImg())
+        return
+    end
+    lvl = get(hObject,'Value');
+    img = imsharpen(img, 'Amount', lvl);
+    commitImg();
+end
+
+% --- Executes during object creation, after setting all properties.
+function slider7_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to slider7 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+end
+
+
+% --- Executes on slider movement.
+function slider8_Callback(hObject, eventdata, handles)
+    global img
+    if (~initImg())
+        return;
+    end
+    contrastValue = get(hObject, 'Value');
+    img = imadjust(img, stretchlim(img), [], contrastValue);
+    commitImg();
+end
+
+% --- Executes during object creation, after setting all properties.
+function slider8_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to slider8 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
 end
